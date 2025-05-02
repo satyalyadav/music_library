@@ -84,4 +84,3 @@ Before you begin, ensure you have the following installed on your system:
    ```
    This will start both your backend and the frontend development server concurrently.  
    Once everything is up, open your browser and navigate to the URL provided by Vite (e.g., `http://localhost:5173`).  
-```
