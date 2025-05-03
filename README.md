@@ -41,7 +41,7 @@ Before you begin, ensure you have the following installed on your system:
      _Note: The quotes are important if your database name contains spaces._
 
    - **Create Tables**  
-     Run `backend/schema.sql` manually in psql or using the Query Tool in pgAdmin.
+     Run the code inside `backend/schema.sql` manually in psql or using the Query Tool in pgAdmin.
 
 4. **Environment Variables**
 
