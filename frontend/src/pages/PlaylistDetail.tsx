@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import api from '../api/axios';
-import { useAuth } from '../contexts/AuthContext';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import api from "../api/axios";
+import { useAudioPlayer } from "../contexts/AudioPlayerContext";
 
 interface Song {
   song_id: number;
   title: string;
-  duration: string | { hours?: number; minutes?: number; seconds?: number };
+  duration: any;
   file_path: string;
+  artist_name?: string;
+  album_title?: string;
 }
 
 interface Playlist {
@@ -16,126 +17,242 @@ interface Playlist {
   title: string;
   cover_image: string | null;
   date_created: string;
-  user_id: number;
+  songs: Song[];
 }
 
 function formatDuration(d: any): string {
-  if (typeof d === 'string') return d;
+  if (typeof d === "string") return d;
   const h = d.hours || 0;
-  const m = String(d.minutes || 0).padStart(2, '0');
-  const s = String(d.seconds || 0).padStart(2, '0');
-  return `${h}:${m}:${s}`;
+  const m = String(d.minutes || 0).padStart(2, "0");
+  const s = String(d.seconds || 0).padStart(2, "0");
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
 const PlaylistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const playlistId = Number(id);
-  const { user } = useAuth();
-  const { playTrack, currentTrack, isPlaying } = useAudioPlayer();
-
+  const navigate = useNavigate();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
-  const [songsInPlaylist, setSongsInPlaylist] = useState<Song[]>([]);
-  const [allSongs, setAllSongs] = useState<Song[]>([]);
-  const [selectedSong, setSelectedSong] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const { playTrack, currentTrack, isPlaying, setQueue, togglePlayPause } =
+    useAudioPlayer();
   const baseUrl = import.meta.env.VITE_API_URL;
 
-  useEffect(() => {
-    api.get<Playlist>(`/playlists/${playlistId}`)
-      .then(res => setPlaylist(res.data))
-      .catch(() => setError('Failed to load playlist.'));
-    api.get<Song[]>(`/playlists/${playlistId}/songs`)
-      .then(res => setSongsInPlaylist(res.data))
-      .catch(() => setError('Failed to load playlist songs.'));
-    api.get<Song[]>('/songs')
-      .then(res => setAllSongs(res.data))
-      .catch(() => setError('Failed to load all songs.'));
-  }, [playlistId]);
-
-  const handleAdd = async () => {
-    if (!selectedSong) return;
-    await api.post(`/playlists/${playlistId}/songs`, { song_id: selectedSong });
-    setSongsInPlaylist(prev => [
-      ...prev,
-      allSongs.find(s => s.song_id === selectedSong)!
-    ]);
-    setSelectedSong(0);
+  const fetchPlaylist = () => {
+    setLoading(true);
+    Promise.all([
+      api.get<{
+        playlist_id: number;
+        title: string;
+        cover_image: string | null;
+        date_created: string;
+      }>(`/playlists/${id}`),
+      api.get<Song[]>(`/playlists/${id}/songs`),
+    ])
+      .then(([playlistRes, songsRes]) => {
+        setPlaylist({
+          ...playlistRes.data,
+          songs: songsRes.data,
+        });
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   };
 
-  const handleRemove = async (songId: number) => {
-    await api.delete(`/playlists/${playlistId}/songs/${songId}`);
-    setSongsInPlaylist(prev => prev.filter(s => s.song_id !== songId));
+  useEffect(fetchPlaylist, [id]);
+
+  const handlePlayAll = () => {
+    if (!playlist || playlist.songs.length === 0) return;
+    const tracks = playlist.songs.map((s) => ({
+      url: `${baseUrl}${s.file_path}`,
+      title: s.title,
+      artist: s.artist_name || "",
+      album: s.album_title || "",
+    }));
+    setQueue(tracks);
+    playTrack(tracks[0]);
   };
 
-  if (!playlist) return <p>Loading…</p>;
-  if (playlist.user_id !== user?.user_id) return <p>Access denied.</p>;
+  const handlePlaySong = (song: Song) => {
+    if (!playlist) return;
+    const tracks = playlist.songs.map((s) => ({
+      url: `${baseUrl}${s.file_path}`,
+      title: s.title,
+      artist: s.artist_name || "",
+      album: s.album_title || "",
+    }));
+    setQueue(tracks);
+    playTrack({
+      url: `${baseUrl}${song.file_path}`,
+      title: song.title,
+      artist: song.artist_name || "",
+      album: song.album_title || "",
+    });
+  };
 
-  const available = allSongs.filter(
-    s => !songsInPlaylist.some(ps => ps.song_id === s.song_id)
-  );
+  const handleRemoveSong = async (songId: number) => {
+    try {
+      await api.delete(`/playlists/${id}/songs/${songId}`);
+      fetchPlaylist();
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to remove song");
+    }
+  };
+
+  if (loading) return <div className="loading">Loading playlist...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
+  if (!playlist) return <div className="error">Playlist not found</div>;
 
   return (
     <div>
-      <h1>{playlist.title}</h1>
-      {playlist.cover_image && (
-        <img src={playlist.cover_image} alt="Cover" style={{ maxWidth: '200px' }} />
-      )}
-      <p>Created on: {new Date(playlist.date_created).toLocaleDateString()}</p>
+      <button
+        className="btn btn-small"
+        onClick={() => navigate("/playlists")}
+        style={{ marginBottom: "16px" }}
+      >
+        ← back to playlists
+      </button>
 
-      <h2>Songs</h2>
-      {songsInPlaylist.length === 0 ? (
-        <p>No songs in this playlist.</p>
-      ) : (
-        <ul>
-          {songsInPlaylist.map(s => {
-            const trackUrl = `${baseUrl}${s.file_path}`;
-            const isCurrent = currentTrack?.url === trackUrl && isPlaying;
-            return (
-              <li key={s.song_id} style={{ marginBottom: '0.5rem' }}>
-                {isCurrent
-                  ? <span style={{ color: 'green', fontWeight: 'bold' }}>Playing</span>
-                  : <button
-                      onClick={() =>
-                        playTrack({
-                          url:    trackUrl,
-                          title:  s.title,
-                          artist: '',
-                          album:  ''
-                        })
-                      }
-                    >
-                      ▶ Play
-                    </button>
-                }
-                <span style={{ marginLeft: '0.5rem' }}>
-                  {s.title} — {formatDuration(s.duration)}
-                </span>{' '}
-                <button onClick={() => handleRemove(s.song_id)}>Remove</button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <div style={{ marginTop: '1rem' }}>
-        <select
-          value={selectedSong}
-          onChange={e => setSelectedSong(Number(e.target.value))}
-        >
-          <option value={0}>Select song…</option>
-          {available.map(s => (
-            <option key={s.song_id} value={s.song_id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
-        <button onClick={handleAdd} disabled={!selectedSong}>
-          Add Song
-        </button>
+      <div style={{ display: "flex", gap: "24px", marginBottom: "32px" }}>
+        {playlist.cover_image ? (
+          <img
+            src={playlist.cover_image}
+            alt={playlist.title}
+            style={{
+              width: "200px",
+              height: "200px",
+              objectFit: "cover",
+              borderRadius: "8px",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "200px",
+              height: "200px",
+              background: "var(--card-bg)",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "80px",
+            }}
+          >
+            🎶
+          </div>
+        )}
+        <div>
+          <p className="section-label">//playlist</p>
+          <h1 className="section-title" style={{ marginBottom: "16px" }}>
+            {playlist.title}
+          </h1>
+          <p style={{ color: "var(--text-muted)", marginBottom: "8px" }}>
+            {playlist.songs.length}{" "}
+            {playlist.songs.length === 1 ? "song" : "songs"}
+          </p>
+          <p
+            style={{
+              color: "var(--text-muted)",
+              marginBottom: "16px",
+              fontSize: "12px",
+            }}
+          >
+            Created {new Date(playlist.date_created).toLocaleDateString()}
+          </p>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button
+              className="btn btn-primary"
+              onClick={handlePlayAll}
+              disabled={playlist.songs.length === 0}
+            >
+              ▶ play all
+            </button>
+            <button
+              className="btn"
+              onClick={() => navigate(`/playlists/${id}/edit`)}
+            >
+              edit
+            </button>
+          </div>
+        </div>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {playlist.songs.length === 0 ? (
+        <div className="empty">
+          <p>This playlist is empty.</p>
+          <p style={{ marginTop: "8px" }}>
+            <button
+              className="btn"
+              onClick={() => navigate(`/playlists/${id}/edit`)}
+            >
+              add songs
+            </button>
+          </p>
+        </div>
+      ) : (
+        <div className="list">
+          {playlist.songs.map((song, index) => {
+            const trackUrl = `${baseUrl}${song.file_path}`;
+            const isCurrent = currentTrack?.url === trackUrl;
+            const isCurrentPlaying = isCurrent && isPlaying;
+
+            return (
+              <div key={song.song_id} className="list-item">
+                <span
+                  style={{
+                    width: "24px",
+                    color: "var(--text-muted)",
+                    textAlign: "center",
+                  }}
+                >
+                  {index + 1}
+                </span>
+                <button
+                  className={`btn btn-icon ${
+                    isCurrentPlaying ? "btn-primary" : ""
+                  }`}
+                  onClick={() =>
+                    isCurrent ? togglePlayPause() : handlePlaySong(song)
+                  }
+                  title={isCurrentPlaying ? "Pause" : "Play"}
+                >
+                  <span className="btn-icon-content">
+                    {isCurrentPlaying ? "⏸" : "▶"}
+                  </span>
+                </button>
+                <div className="list-item-content">
+                  <div
+                    className={`list-item-title ${isCurrent ? "playing" : ""}`}
+                  >
+                    {song.title}
+                  </div>
+                  <div className="list-item-subtitle">
+                    {song.artist_name || "Unknown Artist"} •{" "}
+                    {song.album_title || "Unknown Album"}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontSize: "12px",
+                    marginRight: "12px",
+                  }}
+                >
+                  {formatDuration(song.duration)}
+                </span>
+                <button
+                  className="btn btn-small btn-danger"
+                  onClick={() => handleRemoveSong(song.song_id)}
+                  title="Remove from playlist"
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

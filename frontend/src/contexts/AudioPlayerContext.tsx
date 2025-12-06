@@ -1,4 +1,3 @@
-// src/contexts/AudioPlayerContext.tsx
 import React, {
   createContext,
   useContext,
@@ -6,8 +5,8 @@ import React, {
   useRef,
   ReactNode,
   useEffect,
-} from 'react';
-import { useAuth } from '../contexts/AuthContext';
+} from "react";
+import { useAuth } from "./AuthContext";
 
 export interface Track {
   url: string;
@@ -21,25 +20,45 @@ interface AudioPlayerContextProps {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  volume: number;
   playTrack: (track: Track) => void;
   togglePlayPause: () => void;
   seek: (time: number) => void;
+  setVolume: (volume: number) => void;
+  playNext: () => void;
+  playPrevious: () => void;
+  queue: Track[];
+  setQueue: (tracks: Track[]) => void;
+  addToQueue: (track: Track) => void;
 }
 
-const AudioPlayerContext = createContext<AudioPlayerContextProps | undefined>(undefined);
+const AudioPlayerContext = createContext<AudioPlayerContextProps | undefined>(
+  undefined
+);
 
-export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const { user } = useAuth();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [isPlaying, setIsPlaying]     = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration]       = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolumeState] = useState(1);
+  const [queue, setQueue] = useState<Track[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   const audioRef = useRef<HTMLAudioElement>(new Audio());
 
   const playTrack = (track: Track) => {
     if (currentTrack?.url !== track.url) {
       audioRef.current.src = track.url;
       setCurrentTrack(track);
+
+      // Find index in queue
+      const idx = queue.findIndex((t) => t.url === track.url);
+      if (idx !== -1) {
+        setCurrentIndex(idx);
+      }
     }
     audioRef.current.play();
     setIsPlaying(true);
@@ -60,24 +79,58 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setCurrentTime(time);
   };
 
+  const setVolume = (vol: number) => {
+    audioRef.current.volume = vol;
+    setVolumeState(vol);
+  };
+
+  const playNext = () => {
+    if (queue.length > 0 && currentIndex < queue.length - 1) {
+      const nextTrack = queue[currentIndex + 1];
+      setCurrentIndex(currentIndex + 1);
+      audioRef.current.src = nextTrack.url;
+      setCurrentTrack(nextTrack);
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const playPrevious = () => {
+    if (queue.length > 0 && currentIndex > 0) {
+      const prevTrack = queue[currentIndex - 1];
+      setCurrentIndex(currentIndex - 1);
+      audioRef.current.src = prevTrack.url;
+      setCurrentTrack(prevTrack);
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const addToQueue = (track: Track) => {
+    setQueue((prev) => [...prev, track]);
+  };
+
   useEffect(() => {
     const audio = audioRef.current;
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
     const onLoadedMeta = () => setDuration(audio.duration);
-    const onEnded      = () => setIsPlaying(false);
+    const onEnded = () => {
+      setIsPlaying(false);
+      playNext();
+    };
 
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('loadedmetadata', onLoadedMeta);
-    audio.addEventListener('ended', onEnded);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("loadedmetadata", onLoadedMeta);
+    audio.addEventListener("ended", onEnded);
 
     return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('loadedmetadata', onLoadedMeta);
-      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("loadedmetadata", onLoadedMeta);
+      audio.removeEventListener("ended", onEnded);
     };
-  }, []);
+  }, [currentIndex, queue]);
 
-  // Whenever user becomes null (logged out), stop and clear
+  // When user logs out, stop playback
   useEffect(() => {
     if (!user) {
       audioRef.current.pause();
@@ -85,12 +138,29 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       setIsPlaying(false);
       setCurrentTime(0);
       setDuration(0);
+      setQueue([]);
+      setCurrentIndex(-1);
     }
   }, [user]);
 
   return (
     <AudioPlayerContext.Provider
-      value={{ currentTrack, isPlaying, currentTime, duration, playTrack, togglePlayPause, seek }}
+      value={{
+        currentTrack,
+        isPlaying,
+        currentTime,
+        duration,
+        volume,
+        playTrack,
+        togglePlayPause,
+        seek,
+        setVolume,
+        playNext,
+        playPrevious,
+        queue,
+        setQueue,
+        addToQueue,
+      }}
     >
       {children}
     </AudioPlayerContext.Provider>
@@ -99,6 +169,7 @@ export const AudioPlayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
 export const useAudioPlayer = () => {
   const ctx = useContext(AudioPlayerContext);
-  if (!ctx) throw new Error('useAudioPlayer must be used within AudioPlayerProvider');
+  if (!ctx)
+    throw new Error("useAudioPlayer must be used within AudioPlayerProvider");
   return ctx;
 };

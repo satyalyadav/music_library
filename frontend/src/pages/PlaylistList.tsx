@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
 
 interface Playlist {
   playlist_id: number;
@@ -13,23 +12,27 @@ interface Playlist {
 
 const PlaylistList: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPlaylists = () => {
     setLoading(true);
-    api.get<Playlist[]>('/playlists')
-      .then(res => setPlaylists(res.data))
-      .catch(err => setError(err.message))
+    api
+      .get<Playlist[]>("/playlists")
+      .then((res) => {
+        setPlaylists(res.data);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(fetchPlaylists, []);
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this playlist?')) return;
+  const handleDelete = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this playlist?")) return;
     try {
       await api.delete(`/playlists/${id}`);
       fetchPlaylists();
@@ -38,35 +41,89 @@ const PlaylistList: React.FC = () => {
     }
   };
 
-  if (loading) return <p>Loading playlists…</p>;
-  if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
-  if (playlists.length === 0) return <p>No playlists found.</p>;
+  if (loading) return <div className="loading">Loading playlists...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
 
   return (
     <div>
-      <h1>Your Playlists</h1>
-      <button onClick={() => navigate('/playlists/new')} style={{ marginBottom: '1rem' }}>
-        + Add Playlist
-      </button>
-      <ul>
-        {playlists.map(p => (
-          <li key={p.playlist_id} style={{ marginBottom: '0.5rem' }}>
-            {p.title} — {new Date(p.date_created).toLocaleDateString()}
-            {' '}
-            <button onClick={() => navigate(`/playlists/${p.playlist_id}`)}>
-              View
+      <p className="section-label">//library</p>
+      <h1 className="section-title">playlists</h1>
+
+      <div style={{ marginBottom: "24px" }}>
+        <button
+          className="btn btn-primary"
+          onClick={() => navigate("/playlists/new")}
+        >
+          + create playlist
+        </button>
+      </div>
+
+      {playlists.length === 0 ? (
+        <div className="empty">
+          <p>No playlists yet.</p>
+          <p style={{ marginTop: "8px" }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate("/playlists/new")}
+            >
+              create your first playlist
             </button>
-            {' '}
-            <button onClick={() => navigate(`/playlists/${p.playlist_id}/edit`)}>
-              Edit
-            </button>
-            {' '}
-            <button onClick={() => handleDelete(p.playlist_id)}>
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
+          </p>
+        </div>
+      ) : (
+        <div className="grid">
+          {playlists.map((playlist) => (
+            <div
+              key={playlist.playlist_id}
+              className="grid-item"
+              onClick={() => navigate(`/playlists/${playlist.playlist_id}`)}
+            >
+              {playlist.cover_image ? (
+                <img
+                  src={playlist.cover_image}
+                  alt={playlist.title}
+                  className="grid-item-image"
+                />
+              ) : (
+                <div
+                  className="grid-item-image"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "48px",
+                  }}
+                >
+                  🎶
+                </div>
+              )}
+              <div className="grid-item-content">
+                <div className="grid-item-title">{playlist.title}</div>
+                <div className="grid-item-subtitle">
+                  {new Date(playlist.date_created).toLocaleDateString()}
+                </div>
+                <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                  <button
+                    className="btn btn-small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/playlists/${playlist.playlist_id}/edit`);
+                    }}
+                  >
+                    edit
+                  </button>
+                  <button
+                    className="btn btn-small btn-danger"
+                    onClick={(e) => handleDelete(playlist.playlist_id, e)}
+                  >
+                    delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

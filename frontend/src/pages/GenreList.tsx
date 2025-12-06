@@ -1,34 +1,96 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
-interface Genre { genre_id: number; name: string; }
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
+
+interface Genre {
+  genre_id: number;
+  name: string;
+}
+
+const genreEmojis: Record<string, string> = {
+  rock: "🎸",
+  pop: "🎤",
+  jazz: "🎷",
+  classical: "🎻",
+  electronic: "🎹",
+  hiphop: "🎧",
+  "hip-hop": "🎧",
+  rnb: "🎵",
+  "r&b": "🎵",
+  country: "🤠",
+  metal: "🤘",
+  blues: "🎺",
+  folk: "🪕",
+  reggae: "🌴",
+  soul: "❤️",
+  punk: "⚡",
+  indie: "🌟",
+  alternative: "🔀",
+  dance: "💃",
+  disco: "🪩",
+};
+
+function getGenreEmoji(name: string): string {
+  const normalized = name.toLowerCase().replace(/\s+/g, "");
+  return genreEmojis[normalized] || "🎵";
+}
+
 const GenreList: React.FC = () => {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string|null>(null);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
   useEffect(() => {
-    api.get<Genre[]>('/genres')
-      .then(res => setGenres(res.data))
-      .catch(err => setError(err.message))
+    api
+      .get<Genre[]>("/genres")
+      .then((res) => {
+        setGenres(res.data);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
-  if (loading) return <p>Loading genres…</p>;
-  if (error)   return <p style={{ color: 'red' }}>Error: {error}</p>;
-  if (genres.length === 0) return <p>No genres found.</p>;
+
+  if (loading) return <div className="loading">Loading genres...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
+
   return (
     <div>
-      <h1>Genres</h1>
-      <ul>
-        {genres.map(g => (
-          <li key={g.genre_id}>
-            <button onClick={() => navigate(`/genres/${g.genre_id}`)}>
-              {g.name}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <p className="section-label">//library</p>
+      <h1 className="section-title">genres</h1>
+
+      {genres.length === 0 ? (
+        <div className="empty">No genres found.</div>
+      ) : (
+        <div className="grid">
+          {genres.map((genre) => (
+            <div
+              key={genre.genre_id}
+              className="grid-item"
+              onClick={() => navigate(`/genres/${genre.genre_id}`)}
+            >
+              <div
+                className="grid-item-image"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "48px",
+                }}
+              >
+                {getGenreEmoji(genre.name)}
+              </div>
+              <div className="grid-item-content">
+                <div className="grid-item-title">{genre.name}</div>
+                <div className="grid-item-subtitle">genre</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
+
 export default GenreList;

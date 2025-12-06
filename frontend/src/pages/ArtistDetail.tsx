@@ -1,91 +1,168 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import api from '../api/axios';
-import { useAuth } from '../contexts/AuthContext';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import api from "../api/axios";
+import { useAudioPlayer } from "../contexts/AudioPlayerContext";
 
 interface Song {
   song_id: number;
   title: string;
-  duration: string | { hours?: number; minutes?: number; seconds?: number };
+  duration: any;
   file_path: string;
+  album_title?: string;
 }
 
 interface Artist {
   artist_id: number;
   name: string;
-  user_id: number;
+  songs: Song[];
 }
 
 function formatDuration(d: any): string {
-  if (typeof d === 'string') return d;
+  if (typeof d === "string") return d;
   const h = d.hours || 0;
-  const m = String(d.minutes || 0).padStart(2, '0');
-  const s = String(d.seconds || 0).padStart(2, '0');
-  return `${h}:${m}:${s}`;
+  const m = String(d.minutes || 0).padStart(2, "0");
+  const s = String(d.seconds || 0).padStart(2, "0");
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
 const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const artistId = Number(id);
-  const { user } = useAuth();
-  const { playTrack, currentTrack, isPlaying } = useAudioPlayer();
-
+  const navigate = useNavigate();
   const [artist, setArtist] = useState<Artist | null>(null);
-  const [songs, setSongs]   = useState<Song[]>([]);
-  const [error, setError]   = useState<string | null>(null);
-
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { playTrack, currentTrack, isPlaying, setQueue } = useAudioPlayer();
   const baseUrl = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    api.get<Artist>(`/artists/${artistId}`)
-      .then(res => setArtist(res.data))
-      .catch(() => setError('Failed to load artist.'));
-    api.get<Song[]>(`/artists/${artistId}/songs`)
-      .then(res => setSongs(res.data))
-      .catch(() => setError('Failed to load artist songs.'));
-  }, [artistId]);
+    Promise.all([
+      api.get<{ artist_id: number; name: string }>(`/artists/${id}`),
+      api.get<Song[]>(`/artists/${id}/songs`),
+    ])
+      .then(([artistRes, songsRes]) => {
+        setArtist({
+          ...artistRes.data,
+          songs: songsRes.data,
+        });
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-  if (!artist) return <p>Loading…</p>;
-  if (artist.user_id !== user?.user_id) return <p>Access denied.</p>;
+  const handlePlayAll = () => {
+    if (!artist || artist.songs.length === 0) return;
+    const tracks = artist.songs.map((s) => ({
+      url: `${baseUrl}${s.file_path}`,
+      title: s.title,
+      artist: artist.name,
+      album: s.album_title || "",
+    }));
+    setQueue(tracks);
+    playTrack(tracks[0]);
+  };
+
+  const handlePlaySong = (song: Song) => {
+    if (!artist) return;
+    const tracks = artist.songs.map((s) => ({
+      url: `${baseUrl}${s.file_path}`,
+      title: s.title,
+      artist: artist.name,
+      album: s.album_title || "",
+    }));
+    setQueue(tracks);
+    playTrack({
+      url: `${baseUrl}${song.file_path}`,
+      title: song.title,
+      artist: artist.name,
+      album: song.album_title || "",
+    });
+  };
+
+  if (loading) return <div className="loading">Loading artist...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
+  if (!artist) return <div className="error">Artist not found</div>;
 
   return (
     <div>
-      <h1>{artist.name}</h1>
-      <h2>Songs</h2>
-      {songs.length === 0 ? (
-        <p>No songs for this artist.</p>
+      <button
+        className="btn btn-small"
+        onClick={() => navigate("/artists")}
+        style={{ marginBottom: "16px" }}
+      >
+        ← back to artists
+      </button>
+
+      <div style={{ display: "flex", gap: "24px", marginBottom: "32px" }}>
+        <div
+          style={{
+            width: "200px",
+            height: "200px",
+            background: "var(--card-bg)",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "80px",
+          }}
+        >
+          🎤
+        </div>
+        <div>
+          <p className="section-label">//artist</p>
+          <h1 className="section-title" style={{ marginBottom: "16px" }}>
+            {artist.name}
+          </h1>
+          <p style={{ color: "var(--text-muted)", marginBottom: "16px" }}>
+            {artist.songs.length} {artist.songs.length === 1 ? "song" : "songs"}
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={handlePlayAll}
+            disabled={artist.songs.length === 0}
+          >
+            ▶ play all
+          </button>
+        </div>
+      </div>
+
+      {artist.songs.length === 0 ? (
+        <div className="empty">No songs by this artist.</div>
       ) : (
-        <ul>
-          {songs.map(s => {
-            const trackUrl = `${baseUrl}${s.file_path}`;
-            const isCurrent = currentTrack?.url === trackUrl && isPlaying;
+        <div className="list">
+          {artist.songs.map((song) => {
+            const trackUrl = `${baseUrl}${song.file_path}`;
+            const isCurrent = currentTrack?.url === trackUrl;
+            const isCurrentPlaying = isCurrent && isPlaying;
+
             return (
-              <li key={s.song_id} style={{ marginBottom: '1rem' }}>
-                {isCurrent
-                  ? <span style={{ color: 'green', fontWeight: 'bold' }}>Playing</span>
-                  : <button
-                      onClick={() =>
-                        playTrack({
-                          url:    trackUrl,
-                          title:  s.title,
-                          artist: artist.name,
-                          album:  ''
-                        })
-                      }
-                    >
-                      ▶ Play
-                    </button>
-                }
-                <span style={{ marginLeft: '0.5rem' }}>
-                  {s.title} — {formatDuration(s.duration)}
+              <div key={song.song_id} className="list-item">
+                <button
+                  className={`btn btn-icon ${
+                    isCurrentPlaying ? "btn-primary" : ""
+                  }`}
+                  onClick={() => handlePlaySong(song)}
+                >
+                  {isCurrentPlaying ? "⏸" : "▶"}
+                </button>
+                <div className="list-item-content">
+                  <div
+                    className={`list-item-title ${isCurrent ? "playing" : ""}`}
+                  >
+                    {song.title}
+                  </div>
+                  <div className="list-item-subtitle">
+                    {song.album_title || "Unknown Album"}
+                  </div>
+                </div>
+                <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>
+                  {formatDuration(song.duration)}
                 </span>
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </div>
       )}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
   );
 };

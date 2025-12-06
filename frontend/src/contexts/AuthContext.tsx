@@ -3,9 +3,9 @@ import React, {
   useState,
   useEffect,
   useContext,
-  ReactNode
-} from 'react';
-import api from '../api/axios';
+  ReactNode,
+} from "react";
+import api from "../api/axios";
 
 interface User {
   user_id: number;
@@ -14,49 +14,58 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (token: string) => void;
+  loading: boolean;
+  login: (token: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Verify token with server on startup
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-    api.get<User>('/auth/me')
-      .then(res => setUser(res.data))
-      .catch(() => {
-        localStorage.removeItem('token');
-        setUser(null);
-      });
+    api
+      .get<User>("/auth/me")
+      .then((res) => setUser(res.data))
+      .catch((err) => {
+        // Silently handle 401/403 errors (invalid/expired token)
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          localStorage.removeItem("token");
+          setUser(null);
+        }
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  // On login: store token and fetch user
-  const login = (token: string) => {
-    localStorage.setItem('token', token);
-    // Return the promise so callers can await it
-    return api.get<User>('/auth/me')
-      .then(res => {
-        setUser(res.data);
-      })
-      .catch(() => {
-        localStorage.removeItem('token');
-        setUser(null);
-      });
+  const login = async (token: string) => {
+    localStorage.setItem("token", token);
+    try {
+      const res = await api.get<User>("/auth/me");
+      setUser(res.data);
+    } catch {
+      localStorage.removeItem("token");
+      setUser(null);
+      throw new Error("Failed to authenticate");
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -64,6 +73,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }

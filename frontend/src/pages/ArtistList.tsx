@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
 
 interface Artist {
   artist_id: number;
@@ -14,28 +14,53 @@ const ArtistList: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get<Artist[]>('/artists')
-      .then(res => setArtists(res.data))
-      .catch(err => setError(err.message))
+    api
+      .get<Artist[]>("/artists")
+      .then((res) => {
+        setArtists(res.data);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p>Loading artists…</p>;
-  if (error)   return <p style={{ color: 'red' }}>Error: {error}</p>;
-  if (artists.length === 0) return <p>No artists found.</p>;
+  if (loading) return <div className="loading">Loading artists...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
 
   return (
     <div>
-      <h1>Artists</h1>
-      <ul>
-        {artists.map(artist => (
-          <li key={artist.artist_id}>
-            <button onClick={() => navigate(`/artists/${artist.artist_id}`)}>
-              {artist.name}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <p className="section-label">//library</p>
+      <h1 className="section-title">artists</h1>
+
+      {artists.length === 0 ? (
+        <div className="empty">No artists found.</div>
+      ) : (
+        <div className="grid">
+          {artists.map((artist) => (
+            <div
+              key={artist.artist_id}
+              className="grid-item"
+              onClick={() => navigate(`/artists/${artist.artist_id}`)}
+            >
+              <div
+                className="grid-item-image"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "48px",
+                }}
+              >
+                🎤
+              </div>
+              <div className="grid-item-content">
+                <div className="grid-item-title">{artist.name}</div>
+                <div className="grid-item-subtitle">artist</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

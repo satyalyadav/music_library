@@ -1,14 +1,12 @@
-// src/components/AudioPlayer.tsx
-import React from 'react';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import React from "react";
+import { useAudioPlayer } from "../contexts/AudioPlayerContext";
 
-const formatTime = (sec: number) => {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60)
-    .toString()
-    .padStart(2, '0');
-  return `${m}:${s}`;
-};
+function formatTime(seconds: number): string {
+  if (isNaN(seconds)) return "0:00";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
 
 const AudioPlayer: React.FC = () => {
   const {
@@ -16,63 +14,96 @@ const AudioPlayer: React.FC = () => {
     isPlaying,
     currentTime,
     duration,
+    volume,
     togglePlayPause,
     seek,
+    setVolume,
+    playNext,
+    playPrevious,
   } = useAudioPlayer();
 
-  if (!currentTrack) return null;
-  const timeRemaining = duration - currentTime;
+  if (!currentTrack) {
+    return (
+      <div className="audio-player">
+        <div className="audio-player-info">
+          <div
+            className="audio-player-title"
+            style={{ color: "var(--text-muted)" }}
+          >
+            No track selected
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    seek(percentage * duration);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVolume(parseFloat(e.target.value));
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: '0.5rem 1rem',
-        borderTop: '1px solid #ccc',
-        background: '#fff',
-        color: '#000',             // <-- ensure text is black
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-      }}
-    >
-      {/* Track info */}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ fontWeight: 'bold' }}>{currentTrack.title}</div>
-        {currentTrack.artist && (
-          <div style={{ fontSize: '0.9em' }}>
-            {currentTrack.artist}
-          </div>
-        )}
+    <div className="audio-player">
+      <div className="audio-player-controls">
+        <button
+          className="btn btn-icon"
+          onClick={playPrevious}
+          title="Previous"
+        >
+          <span className="btn-icon-content">⏮</span>
+        </button>
+        <button
+          className="btn btn-icon btn-primary"
+          onClick={togglePlayPause}
+          title={isPlaying ? "Pause" : "Play"}
+        >
+          <span className="btn-icon-content">{isPlaying ? "⏸" : "▶"}</span>
+        </button>
+        <button className="btn btn-icon" onClick={playNext} title="Next">
+          <span className="btn-icon-content">⏭</span>
+        </button>
       </div>
 
-      {/* Play/pause */}
-      <button onClick={togglePlayPause} style={{ flexShrink: 0 }}>
-        {isPlaying ? '❚❚' : '▶'}
-      </button>
+      <div className="audio-player-info">
+        <div className="audio-player-title">
+          {currentTrack.title || "Unknown"}
+        </div>
+        <div className="audio-player-subtitle">
+          {currentTrack.artist || "Unknown Artist"}
+          {currentTrack.album && ` • ${currentTrack.album}`}
+        </div>
+      </div>
 
-      {/* Progress */}
-      <div style={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-        <span style={{ width: '3rem', textAlign: 'right' }}>
-          {formatTime(currentTime)}
-        </span>
+      <div className="audio-player-progress">
+        <span className="audio-player-time">{formatTime(currentTime)}</span>
+        <div className="audio-player-slider" onClick={handleProgressClick}>
+          <div
+            className="audio-player-slider-fill"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <span className="audio-player-time">{formatTime(duration)}</span>
+      </div>
 
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <span style={{ fontSize: "14px" }}>🔊</span>
         <input
           type="range"
-          min={0}
-          max={duration || 0}
-          step={0.1}
-          value={currentTime}
-          onChange={e => seek(Number(e.target.value))}
-          style={{ flexGrow: 1, margin: '0 0.5rem' }}
+          min="0"
+          max="1"
+          step="0.01"
+          value={volume}
+          onChange={handleVolumeChange}
+          style={{ width: "80px" }}
         />
-
-        <span style={{ width: '3rem', textAlign: 'left' }}>
-          -{formatTime(timeRemaining)}
-        </span>
       </div>
     </div>
   );

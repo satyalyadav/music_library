@@ -1,210 +1,189 @@
-// frontend/src/pages/SongEdit.tsx
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import api from '../api/axios';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import api from "../api/axios";
 
-interface Artist { artist_id: number; name: string; }
-interface Album  { album_id:  number; title:  string; }
-interface Genre  { genre_id:  number; name:   string; }
+interface Album {
+  album_id: number;
+  title: string;
+}
+
+interface Artist {
+  artist_id: number;
+  name: string;
+}
+
+interface Genre {
+  genre_id: number;
+  name: string;
+}
+
+interface Song {
+  song_id: number;
+  title: string;
+  album_id: number | null;
+  artist_id: number | null;
+  genre_id: number | null;
+}
 
 const SongEdit: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const songId = Number(id);
   const navigate = useNavigate();
+  const [title, setTitle] = useState("");
+  const [albumId, setAlbumId] = useState("");
+  const [artistId, setArtistId] = useState("");
+  const [genreId, setGenreId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Form state
-  const [title, setTitle]           = useState('');
-  const [artistName, setArtistName] = useState('');
-  const [artistId, setArtistId]     = useState<number | null>(null);
-  const [albumTitle, setAlbumTitle] = useState('');
-  const [albumId, setAlbumId]       = useState<number | null>(null);
-  const [genreName, setGenreName]   = useState('');
-  const [genreId, setGenreId]       = useState<number | null>(null);
-  const [duration, setDuration]     = useState('00:03:00');
-  const [error, setError]           = useState<string | null>(null);
-
-  // Lookup lists
+  const [albums, setAlbums] = useState<Album[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
-  const [albums, setAlbums]   = useState<Album[]>([]);
-  const [genres, setGenres]   = useState<Genre[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
 
-  // Load pick-lists and song data
   useEffect(() => {
     Promise.all([
-      api.get<Artist[]>('/artists'),
-      api.get<Album[]>('/albums'),
-      api.get<Genre[]>('/genres'),
-      api.get<any>(`/songs/${songId}`)
-    ])
-    .then(([aR, alR, gR, sR]) => {
-      setArtists(aR.data);
-      setAlbums(alR.data);
-      setGenres(gR.data);
-
-      const s = sR.data;
-      setTitle(s.title);
-      // Pre-set artist
-      const art = aR.data.find(a => a.artist_id === s.artist_id);
-      setArtistName(art?.name ?? '');
-      setArtistId(s.artist_id);
-      // Pre-set album
-      if (s.album_id) {
-        const alb = alR.data.find(a => a.album_id === s.album_id);
-        setAlbumTitle(alb?.title ?? '');
-        setAlbumId(s.album_id);
-      }
-      // Pre-set genre
-      const gen = gR.data.find(g => g.genre_id === s.genre_id);
-      setGenreName(gen?.name ?? '');
-      setGenreId(s.genre_id);
-      // Duration
-      if (typeof s.duration === 'string') {
-        setDuration(s.duration);
-      } else {
-        // New code—hours padded to two digits:
-        const h2 = String(s.duration.hours || 0).padStart(2, '0');
-        const m2 = String(s.duration.minutes || 0).padStart(2, '0');
-        const sec2 = String(s.duration.seconds || 0).padStart(2, '0');
-        setDuration(`${h2}:${m2}:${sec2}`);
-      }
-    })
-    .catch(() => setError('Failed to load song data.'));
-  }, [songId]);
-
-  // Handlers for selecting existing entries
-  const handleArtistSelect = (name: string) => {
-    setArtistName(name);
-    const match = artists.find(a => a.name === name);
-    setArtistId(match?.artist_id ?? null);
-  };
-  const handleAlbumSelect = (title: string) => {
-    setAlbumTitle(title);
-    const match = albums.find(a => a.title === title);
-    setAlbumId(match?.album_id ?? null);
-  };
-  const handleGenreSelect = (name: string) => {
-    setGenreName(name);
-    const match = genres.find(g => g.name === name);
-    setGenreId(match?.genre_id ?? null);
-  };
-
-  // Inline creation
-  const addNewArtist = async () => {
-    if (!artistName) return;
-    const res = await api.post<Artist>('/artists', { name: artistName });
-    setArtists(prev => [...prev, res.data]);
-    setArtistId(res.data.artist_id);
-  };
-  const addNewAlbum = async () => {
-    if (!albumTitle || artistId === null) return;
-    const res = await api.post<Album>('/albums', { title: albumTitle, artist_id: artistId });
-    setAlbums(prev => [...prev, res.data]);
-    setAlbumId(res.data.album_id);
-  };
-  const addNewGenre = async () => {
-    if (!genreName) return;
-    const res = await api.post<Genre>('/genres', { name: genreName });
-    setGenres(prev => [...prev, res.data]);
-    setGenreId(res.data.genre_id);
-  };
+      api.get<Song>(`/songs/${id}`),
+      api.get<Album[]>("/albums"),
+      api.get<Artist[]>("/artists"),
+      api.get<Genre[]>("/genres"),
+    ]).then(([songRes, albumsRes, artistsRes, genresRes]) => {
+      const song = songRes.data;
+      setTitle(song.title);
+      setAlbumId(song.album_id?.toString() || "");
+      setArtistId(song.artist_id?.toString() || "");
+      setGenreId(song.genre_id?.toString() || "");
+      setAlbums(albumsRes.data);
+      setArtists(artistsRes.data);
+      setGenres(genresRes.data);
+    });
+  }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !artistId || !genreId || !duration) {
-      setError('Title, artist, genre, and duration are required.');
-      return;
-    }
     setError(null);
+    setLoading(true);
 
     try {
-      await api.put(`/songs/${songId}`, {
+      await api.put(`/songs/${id}`, {
         title,
-        artist_id: artistId,
         album_id: albumId || null,
-        genre_id: genreId,
-        duration
+        artist_id: artistId || null,
+        genre_id: genreId || null,
       });
-      navigate('/songs');
+      navigate("/songs");
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message);
+      setError(err.response?.data?.error || "Failed to update song");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this song?")) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/songs/${id}`);
+      navigate("/songs");
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to delete song");
+      setDeleting(false);
     }
   };
 
   return (
-    <div>
-      <h1>Edit Song</h1>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <div style={{ maxWidth: "500px" }}>
+      <p className="section-label">//library</p>
+      <h1 className="section-title">edit song</h1>
+
+      {error && (
+        <div className="error" style={{ marginBottom: "16px" }}>
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
-        <div>
-          <label>Title<br/>
-            <input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              required
-            />
-          </label>
-        </div>
-        <div>
-          <label>Artist<br/>
-            <input
-              list="artist-list"
-              value={artistName}
-              onChange={e => handleArtistSelect(e.target.value)}
-              required
-            />
-            <datalist id="artist-list">
-              {artists.map(a => <option key={a.artist_id} value={a.name} />)}
-            </datalist>
-            {artistName && !artists.some(a => a.name === artistName) && (
-              <button type="button" onClick={addNewArtist}>Add new artist</button>
-            )}
-          </label>
-        </div>
-        <div>
-          <label>Album (optional)<br/>
-            <input
-              list="album-list"
-              value={albumTitle}
-              onChange={e => handleAlbumSelect(e.target.value)}
-            />
-            <datalist id="album-list">
-              {albums.map(al => <option key={al.album_id} value={al.title} />)}
-            </datalist>
-            {albumTitle && !albums.some(al => al.title === albumTitle) && (
-              <button type="button" onClick={addNewAlbum}>Add new album</button>
-            )}
-          </label>
-        </div>
-        <div>
-          <label>Genre<br/>
-            <input
-              list="genre-list"
-              value={genreName}
-              onChange={e => handleGenreSelect(e.target.value)}
-              required
-            />
-            <datalist id="genre-list">
-              {genres.map(g => <option key={g.genre_id} value={g.name} />)}
-            </datalist>
-            {genreName && !genres.some(g => g.name === genreName) && (
-              <button type="button" onClick={addNewGenre}>Add new genre</button>
-            )}
-          </label>
-        </div>
-        <div>
-        <label>Duration (HH:MM:SS)<br/>
+        <div className="form-group">
+          <label className="form-label">//title</label>
           <input
             type="text"
-            value={duration}
-            onChange={e => setDuration(e.target.value)}
-            pattern="[0-9]{2}:[0-9]{2}:[0-9]{2}"
-            title="Format: HH:MM:SS"
-            placeholder="e.g., 03:24:00"
+            className="form-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="song title"
             required
           />
-        </label>
         </div>
-        <button type="submit">Save Changes</button>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">//album</label>
+            <select
+              className="form-input"
+              value={albumId}
+              onChange={(e) => setAlbumId(e.target.value)}
+            >
+              <option value="">select album</option>
+              {albums.map((a) => (
+                <option key={a.album_id} value={a.album_id}>
+                  {a.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">//artist</label>
+            <select
+              className="form-input"
+              value={artistId}
+              onChange={(e) => setArtistId(e.target.value)}
+            >
+              <option value="">select artist</option>
+              {artists.map((a) => (
+                <option key={a.artist_id} value={a.artist_id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">//genre</label>
+          <select
+            className="form-input"
+            value={genreId}
+            onChange={(e) => setGenreId(e.target.value)}
+          >
+            <option value="">select genre</option>
+            {genres.map((g) => (
+              <option key={g.genre_id} value={g.genre_id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? "saving..." : "save changes"}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => navigate("/songs")}
+          >
+            cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? "deleting..." : "delete"}
+          </button>
+        </div>
       </form>
     </div>
   );

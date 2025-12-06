@@ -1,70 +1,66 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
 
 const PlaylistCreate: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [title, setTitle] = useState('');
-  const [coverImage, setCoverImage] = useState('');
-  const [dateCreated, setDateCreated] = useState(() => new Date().toISOString().split('T')[0]);
+  const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) {
-      setError('Title is required.');
-      return;
-    }
     setError(null);
+    setLoading(true);
+
     try {
-      await api.post('/playlists', {
+      const res = await api.post<{ playlist_id: number }>("/playlists", {
         title,
-        cover_image: coverImage || null,
-        date_created: dateCreated,
-        user_id: user?.user_id
       });
-      navigate('/playlists');
+      navigate(`/playlists/${res.data.playlist_id}`);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message);
+      setError(err.response?.data?.error || "Failed to create playlist");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h1>New Playlist</h1>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <div style={{ maxWidth: "500px" }}>
+      <p className="section-label">//library</p>
+      <h1 className="section-title">create playlist</h1>
+
+      {error && (
+        <div className="error" style={{ marginBottom: "16px" }}>
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
-        <div>
-          <label>Title<br/>
-            <input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              required
-            />
-          </label>
+        <div className="form-group">
+          <label className="form-label">//playlist name</label>
+          <input
+            type="text"
+            className="form-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="enter playlist name"
+            required
+          />
         </div>
-        <div>
-          <label>Cover Image URL (optional)<br/>
-            <input
-              type="text"
-              value={coverImage}
-              onChange={e => setCoverImage(e.target.value)}
-            />
-          </label>
+
+        <div style={{ display: "flex", gap: "12px", marginTop: "24px" }}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? "creating..." : "create playlist"}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => navigate("/playlists")}
+          >
+            cancel
+          </button>
         </div>
-        <div>
-          <label>Date Created<br/>
-            <input
-              type="date"
-              value={dateCreated}
-              onChange={e => setDateCreated(e.target.value)}
-              required
-            />
-          </label>
-        </div>
-        <button type="submit">Create Playlist</button>
       </form>
     </div>
   );

@@ -1,54 +1,115 @@
-# React + TypeScript + Vite
+# Music Library - New Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, beautiful frontend for the Music Library app inspired by developer portfolio aesthetics.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 🎨 **Beautiful Design** - Monospace font, clean card-based layout with gradient backgrounds
+- 🌙 **Dark/Light Mode** - Toggle between themes with automatic system preference detection
+- 🎵 **Audio Player** - Built-in audio player with queue management, next/previous controls
+- 📱 **Responsive** - Works great on desktop and mobile devices
+- ⚡ **Fast** - Built with Vite and React 19
 
-## Expanding the ESLint configuration
+## Design Inspiration
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The design follows a developer portfolio aesthetic with:
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- Monospace font (JetBrains Mono)
+- `//section` style labels
+- `<Component/>` style titles
+- Clean, minimal card container
+- Purple/pink gradient background
+- Smooth theme transitions
+
+## Getting Started
+
+1. **Install dependencies:**
+
+   ```bash
+   cd frontend-new
+   npm install
+   ```
+
+2. **Create environment file:**
+
+   ```bash
+   echo "VITE_API_URL=http://localhost:4000" > .env
+   ```
+
+3. **Start the development server:**
+
+   ```bash
+   npm run dev
+   ```
+
+4. **Open in browser:**
+   Navigate to [http://localhost:5174](http://localhost:5174)
+
+## Project Structure
+
+```
+frontend-new/
+├── public/
+│   └── music-icon.svg       # App icon
+├── src/
+│   ├── api/
+│   │   └── axios.ts         # API client with auth interceptor
+│   ├── components/
+│   │   ├── AudioPlayer.tsx  # Global audio player
+│   │   ├── Layout.tsx       # Main layout with navigation
+│   │   └── PrivateRoute.tsx # Auth protection wrapper
+│   ├── contexts/
+│   │   ├── AudioPlayerContext.tsx  # Audio playback state
+│   │   ├── AuthContext.tsx         # User authentication
+│   │   └── ThemeContext.tsx        # Light/dark theme
+│   ├── pages/
+│   │   ├── Login.tsx / Register.tsx
+│   │   ├── SongList.tsx / SongCreate.tsx / SongEdit.tsx
+│   │   ├── AlbumList.tsx / AlbumDetail.tsx
+│   │   ├── ArtistList.tsx / ArtistDetail.tsx
+│   │   ├── GenreList.tsx / GenreDetail.tsx
+│   │   └── PlaylistList.tsx / PlaylistCreate.tsx / PlaylistDetail.tsx / PlaylistEdit.tsx
+│   ├── styles/
+│   │   └── global.css       # Global styles and CSS variables
+│   ├── App.tsx              # Main app with routing
+│   └── main.tsx             # Entry point
+└── vite.config.ts           # Vite configuration (port 5174)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Replacing the Old Frontend
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+When you're ready to replace the old frontend:
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+1. Rename the old frontend folder:
+
+   ```bash
+   mv frontend frontend-old
+   ```
+
+2. Rename the new frontend folder:
+
+   ```bash
+   mv frontend-new frontend
+   ```
+
+3. Update `vite.config.ts` to use port 5173:
+
+   ```ts
+   server: {
+     port: 5173,
+   }
+   ```
+
+4. Run the app as usual:
+   ```bash
+   npm run dev
+   ```
+
+## Tech Stack
+
+- **React 19** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **React Router 7** - Routing
+- **Axios** - HTTP client
+- **CSS Variables** - Theming
