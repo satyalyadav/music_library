@@ -13,10 +13,28 @@ interface Song {
 }
 
 function formatDuration(d: any): string {
-  if (typeof d === "string") return d;
+  if (typeof d === "string") {
+    // Handle PostgreSQL interval string format (e.g., "3:45" or "1:23:45" or "3:45.123")
+    const parts = d.split(":");
+    if (parts.length === 2) {
+      // MM:SS format - remove milliseconds if present
+      const secondsPart = parts[1].split(".")[0]; // Remove decimal part
+      return `${parts[0]}:${secondsPart.padStart(2, "0")}`;
+    } else if (parts.length === 3) {
+      // HH:MM:SS format - remove milliseconds and convert to MM:SS if hours is 0
+      const secondsPart = parts[2].split(".")[0]; // Remove decimal part
+      const hours = parseInt(parts[0], 10);
+      if (hours === 0) {
+        return `${parts[1]}:${secondsPart.padStart(2, "0")}`;
+      }
+      return `${parts[0]}:${parts[1]}:${secondsPart.padStart(2, "0")}`;
+    }
+    return d;
+  }
+  // Handle object format from database (PostgreSQL interval)
   const h = d.hours || 0;
   const m = String(d.minutes || 0).padStart(2, "0");
-  const s = String(d.seconds || 0).padStart(2, "0");
+  const s = String(Math.floor(d.seconds || 0)).padStart(2, "0"); // Floor to remove milliseconds
   return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 

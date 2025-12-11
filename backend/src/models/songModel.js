@@ -5,7 +5,17 @@ const db = require('../db');
  * @param {number} user_id
  */
 const getSongsByUser = (user_id) =>
-  db.query('SELECT * FROM song WHERE user_id = $1', [user_id])
+  db.query(
+    `SELECT 
+      s.*,
+      a.name AS artist_name,
+      al.title AS album_title
+    FROM song s
+    LEFT JOIN artist a ON s.artist_id = a.artist_id
+    LEFT JOIN album al ON s.album_id = al.album_id
+    WHERE s.user_id = $1`,
+    [user_id]
+  )
     .then(r => r.rows);
 
 /**
