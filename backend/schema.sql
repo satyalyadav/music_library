@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.song
     genre_id integer NOT NULL,
     duration interval NOT NULL,
     file_path text COLLATE pg_catalog."default" NOT NULL,
+    cover_image text COLLATE pg_catalog."default",
     user_id integer,
     CONSTRAINT song_pkey PRIMARY KEY (song_id)
 );

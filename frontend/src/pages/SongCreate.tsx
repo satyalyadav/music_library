@@ -34,6 +34,7 @@ const SongCreate: React.FC = () => {
   const [genreId, setGenreId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [duration, setDuration] = useState<string>("");
+  const [coverImage, setCoverImage] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -118,6 +119,7 @@ const SongCreate: React.FC = () => {
     setSearchQuery("");
     setShowResults(false);
     setTitle(result.title || "");
+    setCoverImage(result.coverArt || "");
 
     try {
       // Find or create artist
@@ -205,6 +207,7 @@ const SongCreate: React.FC = () => {
     formData.append("genre_id", genreId);
     formData.append("duration", duration);
     if (albumId) formData.append("album_id", albumId);
+    if (coverImage) formData.append("cover_image", coverImage);
     formData.append("audio", file);
 
     try {
@@ -254,14 +257,14 @@ const SongCreate: React.FC = () => {
                       const minutes = Math.floor((durationSeconds % 3600) / 60);
                       const seconds = durationSeconds % 60;
 
-                      // Format as PostgreSQL interval: HH:MM:SS or MM:SS
-                      const durationStr =
-                        hours > 0
-                          ? `${hours}:${String(minutes).padStart(
-                              2,
-                              "0"
-                            )}:${String(seconds).padStart(2, "0")}`
-                          : `${minutes}:${String(seconds).padStart(2, "0")}`;
+                      // Format as PostgreSQL interval: Always use HH:MM:SS format to avoid ambiguity
+                      // PostgreSQL interprets MM:SS as hours:minutes, so we use 00:MM:SS for songs under 1 hour
+                      const durationStr = `${String(hours).padStart(
+                        2,
+                        "0"
+                      )}:${String(minutes).padStart(2, "0")}:${String(
+                        seconds
+                      ).padStart(2, "0")}`;
 
                       setDuration(durationStr);
                       URL.revokeObjectURL(objectUrl);
@@ -379,14 +382,30 @@ const SongCreate: React.FC = () => {
 
         <div className="form-group">
           <label className="form-label">//title</label>
-          <input
-            type="text"
-            className="form-input"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="song title"
-            required
-          />
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            {coverImage && (
+              <img
+                src={coverImage}
+                alt="Cover"
+                style={{
+                  width: "60px",
+                  height: "60px",
+                  objectFit: "cover",
+                  borderRadius: "4px",
+                  flexShrink: 0,
+                }}
+              />
+            )}
+            <input
+              type="text"
+              className="form-input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="song title"
+              required
+              style={{ flex: 1 }}
+            />
+          </div>
         </div>
 
         <div className="form-row">

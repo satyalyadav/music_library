@@ -8,34 +8,62 @@ interface Song {
   title: string;
   duration: any;
   file_path: string;
+  cover_image?: string;
   artist_name?: string;
   album_title?: string;
 }
 
 function formatDuration(d: any): string {
   if (typeof d === "string") {
-    // Handle PostgreSQL interval string format (e.g., "3:45" or "1:23:45" or "3:45.123")
+    // Handle PostgreSQL interval string format (e.g., "3:45" or "1:23:45" or "3:45.123" or "5:12:00")
     const parts = d.split(":");
     if (parts.length === 2) {
       // MM:SS format - remove milliseconds if present
       const secondsPart = parts[1].split(".")[0]; // Remove decimal part
       return `${parts[0]}:${secondsPart.padStart(2, "0")}`;
     } else if (parts.length === 3) {
-      // HH:MM:SS format - remove milliseconds and convert to MM:SS if hours is 0
-      const secondsPart = parts[2].split(".")[0]; // Remove decimal part
+      // Could be HH:MM:SS format
       const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1], 10);
+      const secondsPart = parts[2].split(".")[0]; // Remove decimal part
+      const seconds = parseInt(secondsPart, 10);
+      
+      // If hours is 0, show as MM:SS
       if (hours === 0) {
-        return `${parts[1]}:${secondsPart.padStart(2, "0")}`;
+        return `${minutes}:${secondsPart.padStart(2, "0")}`;
       }
-      return `${parts[0]}:${parts[1]}:${secondsPart.padStart(2, "0")}`;
+      
+      // Heuristic: If hours < 60 and total duration < 2 hours (7200 seconds),
+      // it's likely stored incorrectly as HH:MM:SS when it should be MM:SS
+      // Treat hours as minutes in this case
+      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+      if (hours < 60 && totalSeconds < 7200 && seconds === 0) {
+        // Likely meant to be MM:SS format
+        return `${hours}:${String(minutes).padStart(2, "0")}`;
+      }
+      
+      // For songs with hours, show HH:MM:SS
+      return `${hours}:${String(minutes).padStart(2, "0")}:${secondsPart.padStart(2, "0")}`;
     }
     return d;
   }
   // Handle object format from database (PostgreSQL interval)
   const h = d.hours || 0;
-  const m = String(d.minutes || 0).padStart(2, "0");
-  const s = String(Math.floor(d.seconds || 0)).padStart(2, "0"); // Floor to remove milliseconds
-  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+  const m = d.minutes || 0;
+  const s = Math.floor(d.seconds || 0); // Floor to remove milliseconds
+  
+  // Heuristic: If hours < 60 and total duration < 2 hours,
+  // it's likely stored incorrectly - treat hours as minutes
+  const totalSeconds = (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
+  if (h > 0 && h < 60 && totalSeconds < 7200 && s === 0) {
+    return `${h}:${String(m).padStart(2, "0")}`;
+  }
+  
+  // Format: MM:SS if no hours, HH:MM:SS if hours > 0
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 const SongList: React.FC = () => {
@@ -127,6 +155,19 @@ const SongList: React.FC = () => {
 
             return (
               <div key={song.song_id} className="list-item">
+                {song.cover_image && (
+                  <img
+                    src={song.cover_image}
+                    alt={song.title}
+                    style={{
+                      width: "50px",
+                      height: "50px",
+                      objectFit: "cover",
+                      borderRadius: "4px",
+                      marginRight: "12px",
+                    }}
+                  />
+                )}
                 <button
                   className={`btn btn-icon ${
                     isCurrentPlaying ? "btn-primary" : ""

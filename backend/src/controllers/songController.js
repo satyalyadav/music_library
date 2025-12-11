@@ -34,7 +34,7 @@ const addSong = async (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ error: 'audio file is required' });
     }
-    const { title, artist_id, album_id, genre_id, duration } = req.body;
+    const { title, artist_id, album_id, genre_id, duration, cover_image } = req.body;
     if (!title || !artist_id || !genre_id || !duration) {
       return res.status(400).json({ error: 'title, artist_id, genre_id, and duration are required' });
     }
@@ -46,6 +46,7 @@ const addSong = async (req, res, next) => {
       genre_id,
       duration,
       file_path,
+      cover_image: cover_image || null,
       user_id: req.user.user_id
     });
     res.status(201).json(song);

@@ -36,15 +36,16 @@ const getSongByIdAndUser = (id, user_id) =>
  * @param {number} songData.genre_id
  * @param {string} songData.duration
  * @param {string} songData.file_path
+ * @param {string|null} songData.cover_image
  * @param {number} songData.user_id
  */
-const createSong = ({ title, artist_id, album_id, genre_id, duration, file_path, user_id }) =>
+const createSong = ({ title, artist_id, album_id, genre_id, duration, file_path, cover_image, user_id }) =>
   db.query(
     `INSERT INTO song
-     (title, artist_id, album_id, genre_id, duration, file_path, user_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     (title, artist_id, album_id, genre_id, duration, file_path, cover_image, user_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
      RETURNING *`,
-    [title, artist_id, album_id, genre_id, duration, file_path, user_id]
+    [title, artist_id, album_id, genre_id, duration, file_path, cover_image || null, user_id]
   ).then(r => r.rows[0]);
 
 /**
