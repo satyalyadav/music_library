@@ -118,6 +118,9 @@ ALTER TABLE IF EXISTS public.playlist_song
 
 
 ALTER TABLE IF EXISTS public.song
+    ADD COLUMN IF NOT EXISTS cover_image text COLLATE pg_catalog."default";
+
+ALTER TABLE IF EXISTS public.song
     ADD CONSTRAINT fk_song_user FOREIGN KEY (user_id)
     REFERENCES public.users (user_id) MATCH SIMPLE
     ON UPDATE NO ACTION
