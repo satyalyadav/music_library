@@ -4,8 +4,6 @@ import { useAuth } from "./contexts/AuthContext";
 import Layout from "./components/Layout";
 import PrivateRoute from "./components/PrivateRoute";
 
-import Login from "./pages/Login";
-import Register from "./pages/Register";
 import SongList from "./pages/SongList";
 import SongCreate from "./pages/SongCreate";
 import SongEdit from "./pages/SongEdit";
@@ -44,11 +42,7 @@ const App: React.FC = () => {
   return (
     <Layout>
       <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        {/* Protected Routes */}
+        {/* All routes are accessible without authentication */}
         <Route
           path="/songs"
           element={

@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../api/axios";
+import { 
+  playlistService, 
+  songService, 
+  getSongsWithRelations 
+} from "../services/db";
 
 interface Song {
-  song_id: number;
+  song_id?: number;
   title: string;
   artist_name?: string;
 }
 
 interface Playlist {
-  playlist_id: number;
+  playlist_id?: number;
   title: string;
   songs: Song[];
 }
@@ -25,14 +29,22 @@ const PlaylistEdit: React.FC = () => {
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      api.get<Playlist>(`/playlists/${id}`),
-      api.get<Song[]>("/songs"),
-    ]).then(([playlistRes, songsRes]) => {
-      setTitle(playlistRes.data.title);
-      setPlaylistSongs(playlistRes.data.songs || []);
-      setAllSongs(songsRes.data);
-    });
+    const loadData = async () => {
+      if (!id) return;
+      const playlistId = parseInt(id);
+      const [playlist, allSongsData] = await Promise.all([
+        playlistService.getById(playlistId),
+        getSongsWithRelations(),
+      ]);
+      
+      if (playlist) {
+        setTitle(playlist.title);
+        const playlistSongsData = await playlistService.getSongs(playlistId);
+        setPlaylistSongs(playlistSongsData);
+      }
+      setAllSongs(allSongsData);
+    };
+    loadData();
   }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,10 +53,12 @@ const PlaylistEdit: React.FC = () => {
     setLoading(true);
 
     try {
-      await api.put(`/playlists/${id}`, { title });
+      if (!id) return;
+      const playlistId = parseInt(id);
+      await playlistService.update(playlistId, { title });
       navigate(`/playlists/${id}`);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to update playlist");
+      setError(err.message || "Failed to update playlist");
     } finally {
       setLoading(false);
     }
@@ -53,12 +67,14 @@ const PlaylistEdit: React.FC = () => {
   const handleAddSong = async (songId: number) => {
     setAdding(true);
     try {
-      await api.post(`/playlists/${id}/songs`, { song_id: songId });
+      if (!id) return;
+      const playlistId = parseInt(id);
+      await playlistService.addSong(playlistId, songId);
       // Refresh playlist songs
-      const res = await api.get<Playlist>(`/playlists/${id}`);
-      setPlaylistSongs(res.data.songs || []);
+      const playlistSongsData = await playlistService.getSongs(playlistId);
+      setPlaylistSongs(playlistSongsData);
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to add song");
+      alert(err.message || "Failed to add song");
     } finally {
       setAdding(false);
     }
@@ -66,16 +82,18 @@ const PlaylistEdit: React.FC = () => {
 
   const handleRemoveSong = async (songId: number) => {
     try {
-      await api.delete(`/playlists/${id}/songs/${songId}`);
+      if (!id) return;
+      const playlistId = parseInt(id);
+      await playlistService.removeSong(playlistId, songId);
       setPlaylistSongs((prev) => prev.filter((s) => s.song_id !== songId));
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to remove song");
+      alert(err.message || "Failed to remove song");
     }
   };
 
-  const playlistSongIds = new Set(playlistSongs.map((s) => s.song_id));
+  const playlistSongIds = new Set(playlistSongs.map((s) => s.song_id).filter((id): id is number => id !== undefined));
   const availableSongs = allSongs.filter(
-    (s) => !playlistSongIds.has(s.song_id)
+    (s) => s.song_id && !playlistSongIds.has(s.song_id)
   );
 
   return (

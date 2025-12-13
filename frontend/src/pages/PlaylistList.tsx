@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { playlistService } from "../services/db";
 
 interface Playlist {
-  playlist_id: number;
+  playlist_id?: number;
   title: string;
-  cover_image: string | null;
-  date_created: string;
-  user_id: number;
+  cover_image?: string | null;
+  date_created?: string;
 }
 
 const PlaylistList: React.FC = () => {
@@ -16,28 +15,31 @@ const PlaylistList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPlaylists = () => {
+  const fetchPlaylists = async () => {
     setLoading(true);
-    api
-      .get<Playlist[]>("/playlists")
-      .then((res) => {
-        setPlaylists(res.data);
-        setError(null);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+    try {
+      const playlists = await playlistService.getAll();
+      setPlaylists(playlists);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(fetchPlaylists, []);
+  useEffect(() => {
+    fetchPlaylists();
+  }, []);
 
   const handleDelete = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!window.confirm("Delete this playlist?")) return;
     try {
-      await api.delete(`/playlists/${id}`);
+      await playlistService.delete(id);
       fetchPlaylists();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message);
+      alert(err.message);
     }
   };
 

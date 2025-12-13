@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { 
+  songService, 
+  albumService, 
+  artistService, 
+  genreService 
+} from "../services/db";
 
 interface Album {
   album_id: number;
@@ -52,13 +57,13 @@ const SongCreate: React.FC = () => {
 
   useEffect(() => {
     Promise.all([
-      api.get<Album[]>("/albums"),
-      api.get<Artist[]>("/artists"),
-      api.get<Genre[]>("/genres"),
-    ]).then(([albumsRes, artistsRes, genresRes]) => {
-      setAlbums(albumsRes.data);
-      setArtists(artistsRes.data);
-      setGenres(genresRes.data);
+      albumService.getAll(),
+      artistService.getAll(),
+      genreService.getAll(),
+    ]).then(([albums, artists, genres]) => {
+      setAlbums(albums);
+      setArtists(artists);
+      setGenres(genres);
     });
   }, []);
 
@@ -77,10 +82,23 @@ const SongCreate: React.FC = () => {
     searchTimeoutRef.current = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const response = await api.get<{ results: SearchResult[] }>(
-          `/api/metadata/search?query=${encodeURIComponent(searchQuery)}`
-        );
-        setSearchResults(response.data.results);
+        // Call iTunes API directly from frontend
+        const term = encodeURIComponent(searchQuery.trim());
+        const url = `https://itunes.apple.com/search?term=${term}&entity=musicTrack&limit=10`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`iTunes API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const results: SearchResult[] = (data.results || []).map((item: any) => ({
+          title: item.trackName || '',
+          album: item.collectionName || '',
+          artist: item.artistName || '',
+          genre: item.primaryGenreName || '',
+          coverArt: item.artworkUrl100 || item.artworkUrl60 || '',
+          raw: item,
+        }));
+        setSearchResults(results);
         setShowResults(true);
       } catch (err: any) {
         console.error("Search error:", err);
@@ -125,47 +143,47 @@ const SongCreate: React.FC = () => {
       // Find or create artist
       let artist = artists.find((a) => a.name === result.artist);
       if (!artist && result.artist) {
-        const artistRes = await api.post<Artist>("/artists", {
+        const artistId = await artistService.create({
           name: result.artist,
         });
-        artist = artistRes.data;
+        artist = { artist_id: artistId, name: result.artist };
         setArtists([...artists, artist]);
       }
-      if (artist) {
+      if (artist && artist.artist_id) {
         setArtistId(artist.artist_id.toString());
       }
 
       // Find or create genre
       let genre = genres.find((g) => g.name === result.genre);
       if (!genre && result.genre) {
-        const genreRes = await api.post<Genre>("/genres", {
+        const genreId = await genreService.create({
           name: result.genre,
         });
-        genre = genreRes.data;
+        genre = { genre_id: genreId, name: result.genre };
         setGenres([...genres, genre]);
       }
-      if (genre) {
+      if (genre && genre.genre_id) {
         setGenreId(genre.genre_id.toString());
       }
 
       // Find or create album (requires artist_id)
-      if (result.album && artist) {
+      if (result.album && artist && artist.artist_id) {
         let album = albums.find((a) => a.title === result.album);
         if (!album) {
-          const albumRes = await api.post<Album>("/albums", {
+          const albumId = await albumService.create({
             title: result.album,
             artist_id: artist.artist_id,
           });
-          album = albumRes.data;
+          album = { album_id: albumId, title: result.album, artist_id: artist.artist_id };
           setAlbums([...albums, album]);
         }
-        if (album) {
+        if (album && album.album_id) {
           setAlbumId(album.album_id.toString());
         }
       }
     } catch (err: any) {
       console.error("Error setting metadata:", err);
-      setError(err.response?.data?.error || "Failed to set metadata");
+      setError(err.message || "Failed to set metadata");
     }
   };
 
@@ -201,22 +219,29 @@ const SongCreate: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    const formData = new FormData();
-    formData.append("title", title.trim());
-    formData.append("artist_id", artistId);
-    formData.append("genre_id", genreId);
-    formData.append("duration", duration);
-    if (albumId) formData.append("album_id", albumId);
-    if (coverImage) formData.append("cover_image", coverImage);
-    formData.append("audio", file);
-
     try {
-      await api.post("/songs", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // Read file as Blob
+      if (!file) {
+        throw new Error("File is required");
+      }
+
+      // Store file as Blob in IndexedDB
+      const fileBlob = await file.arrayBuffer().then(buf => new Blob([buf], { type: file.type }));
+
+      // Create song in IndexedDB
+      await songService.create({
+        title: title.trim(),
+        artist_id: parseInt(artistId),
+        genre_id: parseInt(genreId),
+        album_id: albumId ? parseInt(albumId) : null,
+        duration: duration,
+        file_blob: fileBlob,
+        cover_image: coverImage || null,
       });
+
       navigate("/songs");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to create song");
+      setError(err.message || "Failed to create song");
     } finally {
       setLoading(false);
     }

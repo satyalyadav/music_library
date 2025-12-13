@@ -1,22 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
 import { useAudioPlayer } from "../contexts/AudioPlayerContext";
-
-interface Song {
-  song_id: number;
-  title: string;
-  duration: any;
-  file_path: string;
-  artist_name?: string;
-  album_title?: string;
-  cover_image?: string;
-}
+import { genreService, songService, getSongUrl } from "../services/db";
+import { SongWithRelations } from "../services/db";
 
 interface Genre {
-  genre_id: number;
+  genre_id?: number;
   name: string;
-  songs: Song[];
+  songs: SongWithRelations[];
 }
 
 function formatDuration(d: any): string {
@@ -33,50 +24,84 @@ const GenreDetail: React.FC = () => {
   const [genre, setGenre] = useState<Genre | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { playTrack, currentTrack, isPlaying, setQueue } = useAudioPlayer();
-  const baseUrl = import.meta.env.VITE_API_URL;
+  const { playTrack, currentTrack, isPlaying, setQueue, togglePlayPause } = useAudioPlayer();
 
   useEffect(() => {
-    Promise.all([
-      api.get<{ genre_id: number; name: string }>(`/genres/${id}`),
-      api.get<Song[]>(`/genres/${id}/songs`),
-    ])
-      .then(([genreRes, songsRes]) => {
-        setGenre({
-          ...genreRes.data,
-          songs: songsRes.data,
-        });
+    const loadData = async () => {
+      if (!id) return;
+      try {
+        const genreId = parseInt(id);
+        const [genreData, songsData] = await Promise.all([
+          genreService.getById(genreId),
+          songService.getByGenre(genreId),
+        ]);
+        
+        if (genreData) {
+          // Get songs with relations
+          const [artistsData, albumsData] = await Promise.all([
+            artistService.getAll(),
+            albumService.getAll(),
+          ]);
+          const artistMap = new Map(artistsData.map(a => [a.artist_id, a.name]));
+          const albumMap = new Map(albumsData.map(a => [a.album_id, a.title]));
+          
+          const songsWithRelations = songsData.map(song => ({
+            ...song,
+            artist_name: song.artist_id ? artistMap.get(song.artist_id) : undefined,
+            album_title: song.album_id ? albumMap.get(song.album_id) : undefined,
+          }));
+          
+          setGenre({
+            ...genreData,
+            songs: songsWithRelations,
+          });
+        }
         setError(null);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [id]);
 
-  const handlePlayAll = () => {
+  const handlePlayAll = async () => {
     if (!genre || genre.songs.length === 0) return;
-    const tracks = genre.songs.map((s) => ({
-      url: `${baseUrl}${s.file_path}`,
-      title: s.title,
-      artist: s.artist_name || "",
-      album: s.album_title || "",
-      cover: s.cover_image || "",
-    }));
+    const tracks = await Promise.all(
+      genre.songs.map(async (s) => {
+        const url = await getSongUrl(s);
+        return {
+          url,
+          title: s.title,
+          artist: s.artist_name || "",
+          album: s.album_title || "",
+          cover: s.cover_image || "",
+        };
+      })
+    );
     setQueue(tracks);
-    playTrack(tracks[0]);
+    if (tracks[0]) playTrack(tracks[0]);
   };
 
-  const handlePlaySong = (song: Song) => {
+  const handlePlaySong = async (song: SongWithRelations) => {
     if (!genre) return;
-    const tracks = genre.songs.map((s) => ({
-      url: `${baseUrl}${s.file_path}`,
-      title: s.title,
-      artist: s.artist_name || "",
-      album: s.album_title || "",
-      cover: s.cover_image || "",
-    }));
+    const tracks = await Promise.all(
+      genre.songs.map(async (s) => {
+        const url = await getSongUrl(s);
+        return {
+          url,
+          title: s.title,
+          artist: s.artist_name || "",
+          album: s.album_title || "",
+          cover: s.cover_image || "",
+        };
+      })
+    );
     setQueue(tracks);
+    const songUrl = await getSongUrl(song);
     playTrack({
-      url: `${baseUrl}${song.file_path}`,
+      url: songUrl,
       title: song.title,
       artist: song.artist_name || "",
       album: song.album_title || "",
@@ -120,8 +145,8 @@ const GenreDetail: React.FC = () => {
       ) : (
         <div className="list">
           {genre.songs.map((song) => {
-            const trackUrl = `${baseUrl}${song.file_path}`;
-            const isCurrent = currentTrack?.url === trackUrl;
+            const isCurrent = currentTrack?.title === song.title && 
+                             currentTrack?.artist === (song.artist_name || "");
             const isCurrentPlaying = isCurrent && isPlaying;
 
             return (
@@ -130,9 +155,14 @@ const GenreDetail: React.FC = () => {
                   className={`btn btn-icon ${
                     isCurrentPlaying ? "btn-primary" : ""
                   }`}
-                  onClick={() => handlePlaySong(song)}
+                  onClick={() =>
+                    isCurrent ? togglePlayPause() : handlePlaySong(song)
+                  }
+                  title={isCurrentPlaying ? "Pause" : "Play"}
                 >
-                  {isCurrentPlaying ? "⏸" : "▶"}
+                  <span className="btn-icon-content">
+                    {isCurrentPlaying ? "⏸" : "▶"}
+                  </span>
                 </button>
                 <div className="list-item-content">
                   <div

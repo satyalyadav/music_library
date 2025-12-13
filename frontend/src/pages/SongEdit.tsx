@@ -1,28 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../api/axios";
+import { 
+  songService, 
+  albumService, 
+  artistService, 
+  genreService 
+} from "../services/db";
 
 interface Album {
-  album_id: number;
+  album_id?: number;
   title: string;
 }
 
 interface Artist {
-  artist_id: number;
+  artist_id?: number;
   name: string;
 }
 
 interface Genre {
-  genre_id: number;
+  genre_id?: number;
   name: string;
 }
 
 interface Song {
-  song_id: number;
+  song_id?: number;
   title: string;
-  album_id: number | null;
-  artist_id: number | null;
-  genre_id: number | null;
+  album_id?: number | null;
+  artist_id?: number;
+  genre_id?: number;
 }
 
 const SongEdit: React.FC = () => {
@@ -41,21 +46,27 @@ const SongEdit: React.FC = () => {
   const [genres, setGenres] = useState<Genre[]>([]);
 
   useEffect(() => {
-    Promise.all([
-      api.get<Song>(`/songs/${id}`),
-      api.get<Album[]>("/albums"),
-      api.get<Artist[]>("/artists"),
-      api.get<Genre[]>("/genres"),
-    ]).then(([songRes, albumsRes, artistsRes, genresRes]) => {
-      const song = songRes.data;
-      setTitle(song.title);
-      setAlbumId(song.album_id?.toString() || "");
-      setArtistId(song.artist_id?.toString() || "");
-      setGenreId(song.genre_id?.toString() || "");
-      setAlbums(albumsRes.data);
-      setArtists(artistsRes.data);
-      setGenres(genresRes.data);
-    });
+    const loadData = async () => {
+      if (!id) return;
+      const songId = parseInt(id);
+      const [song, albums, artists, genres] = await Promise.all([
+        songService.getById(songId),
+        albumService.getAll(),
+        artistService.getAll(),
+        genreService.getAll(),
+      ]);
+      
+      if (song) {
+        setTitle(song.title);
+        setAlbumId(song.album_id?.toString() || "");
+        setArtistId(song.artist_id?.toString() || "");
+        setGenreId(song.genre_id?.toString() || "");
+      }
+      setAlbums(albums);
+      setArtists(artists);
+      setGenres(genres);
+    };
+    loadData();
   }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,15 +75,17 @@ const SongEdit: React.FC = () => {
     setLoading(true);
 
     try {
-      await api.put(`/songs/${id}`, {
+      if (!id) return;
+      const songId = parseInt(id);
+      await songService.update(songId, {
         title,
-        album_id: albumId || null,
-        artist_id: artistId || null,
-        genre_id: genreId || null,
+        album_id: albumId ? parseInt(albumId) : null,
+        artist_id: artistId ? parseInt(artistId) : undefined,
+        genre_id: genreId ? parseInt(genreId) : undefined,
       });
       navigate("/songs");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to update song");
+      setError(err.message || "Failed to update song");
     } finally {
       setLoading(false);
     }
@@ -82,10 +95,12 @@ const SongEdit: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this song?")) return;
     setDeleting(true);
     try {
-      await api.delete(`/songs/${id}`);
+      if (!id) return;
+      const songId = parseInt(id);
+      await songService.delete(songId);
       navigate("/songs");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to delete song");
+      setError(err.message || "Failed to delete song");
       setDeleting(false);
     }
   };

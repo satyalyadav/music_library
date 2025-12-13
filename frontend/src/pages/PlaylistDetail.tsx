@@ -1,24 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
 import { useAudioPlayer } from "../contexts/AudioPlayerContext";
-
-interface Song {
-  song_id: number;
-  title: string;
-  duration: any;
-  file_path: string;
-  artist_name?: string;
-  album_title?: string;
-  cover_image?: string;
-}
+import { 
+  playlistService, 
+  artistService,
+  albumService,
+  getSongUrl 
+} from "../services/db";
+import { SongWithRelations } from "../services/db";
 
 interface Playlist {
-  playlist_id: number;
+  playlist_id?: number;
   title: string;
-  cover_image: string | null;
-  date_created: string;
-  songs: Song[];
+  cover_image?: string | null;
+  date_created?: string;
+  songs: SongWithRelations[];
 }
 
 function formatDuration(d: any): string {
@@ -37,57 +33,85 @@ const PlaylistDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { playTrack, currentTrack, isPlaying, setQueue, togglePlayPause } =
     useAudioPlayer();
-  const baseUrl = import.meta.env.VITE_API_URL;
 
-  const fetchPlaylist = () => {
+  const fetchPlaylist = async () => {
+    if (!id) return;
     setLoading(true);
-    Promise.all([
-      api.get<{
-        playlist_id: number;
-        title: string;
-        cover_image: string | null;
-        date_created: string;
-      }>(`/playlists/${id}`),
-      api.get<Song[]>(`/playlists/${id}/songs`),
-    ])
-      .then(([playlistRes, songsRes]) => {
+    try {
+      const playlistId = parseInt(id);
+      const [playlistData, songsData] = await Promise.all([
+        playlistService.getById(playlistId),
+        playlistService.getSongs(playlistId),
+      ]);
+      
+      if (playlistData) {
+        // Get songs with relations
+        const [artistsData, albumsData] = await Promise.all([
+          artistService.getAll(),
+          albumService.getAll(),
+        ]);
+        const artistMap = new Map(artistsData.map(a => [a.artist_id, a.name]));
+        const albumMap = new Map(albumsData.map(a => [a.album_id, a.title]));
+        
+        const songsWithRelations = songsData.map(song => ({
+          ...song,
+          artist_name: song.artist_id ? artistMap.get(song.artist_id) : undefined,
+          album_title: song.album_id ? albumMap.get(song.album_id) : undefined,
+        }));
+        
         setPlaylist({
-          ...playlistRes.data,
-          songs: songsRes.data,
+          ...playlistData,
+          songs: songsWithRelations,
         });
-        setError(null);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      }
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(fetchPlaylist, [id]);
+  useEffect(() => {
+    fetchPlaylist();
+  }, [id]);
 
-  const handlePlayAll = () => {
+  const handlePlayAll = async () => {
     if (!playlist || playlist.songs.length === 0) return;
-    const tracks = playlist.songs.map((s) => ({
-      url: `${baseUrl}${s.file_path}`,
-      title: s.title,
-      artist: s.artist_name || "",
-      album: s.album_title || "",
-      cover: s.cover_image || "",
-    }));
+    const tracks = await Promise.all(
+      playlist.songs.map(async (s) => {
+        const url = await getSongUrl(s);
+        return {
+          url,
+          title: s.title,
+          artist: s.artist_name || "",
+          album: s.album_title || "",
+          cover: s.cover_image || "",
+        };
+      })
+    );
     setQueue(tracks);
-    playTrack(tracks[0]);
+    if (tracks[0]) playTrack(tracks[0]);
   };
 
-  const handlePlaySong = (song: Song) => {
+  const handlePlaySong = async (song: SongWithRelations) => {
     if (!playlist) return;
-    const tracks = playlist.songs.map((s) => ({
-      url: `${baseUrl}${s.file_path}`,
-      title: s.title,
-      artist: s.artist_name || "",
-      album: s.album_title || "",
-      cover: s.cover_image || "",
-    }));
+    const tracks = await Promise.all(
+      playlist.songs.map(async (s) => {
+        const url = await getSongUrl(s);
+        return {
+          url,
+          title: s.title,
+          artist: s.artist_name || "",
+          album: s.album_title || "",
+          cover: s.cover_image || "",
+        };
+      })
+    );
     setQueue(tracks);
+    const songUrl = await getSongUrl(song);
     playTrack({
-      url: `${baseUrl}${song.file_path}`,
+      url: songUrl,
       title: song.title,
       artist: song.artist_name || "",
       album: song.album_title || "",
@@ -97,10 +121,12 @@ const PlaylistDetail: React.FC = () => {
 
   const handleRemoveSong = async (songId: number) => {
     try {
-      await api.delete(`/playlists/${id}/songs/${songId}`);
+      if (!id) return;
+      const playlistId = parseInt(id);
+      await playlistService.removeSong(playlistId, songId);
       fetchPlaylist();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to remove song");
+      alert(err.message || "Failed to remove song");
     }
   };
 
@@ -196,8 +222,8 @@ const PlaylistDetail: React.FC = () => {
       ) : (
         <div className="list">
           {playlist.songs.map((song, index) => {
-            const trackUrl = `${baseUrl}${song.file_path}`;
-            const isCurrent = currentTrack?.url === trackUrl;
+            const isCurrent = currentTrack?.title === song.title && 
+                             currentTrack?.artist === (song.artist_name || "");
             const isCurrentPlaying = isCurrent && isPlaying;
 
             return (

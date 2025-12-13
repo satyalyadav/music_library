@@ -5,7 +5,6 @@ import React, {
   useContext,
   ReactNode,
 } from "react";
-import api from "../api/axios";
 
 interface User {
   user_id: number;
@@ -15,11 +14,18 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (token: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// For local-first app, we use a simple local user
+// No backend authentication needed
+const LOCAL_USER: User = {
+  user_id: 1,
+  username: 'local_user',
+};
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -28,39 +34,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    api
-      .get<User>("/auth/me")
-      .then((res) => setUser(res.data))
-      .catch((err) => {
-        // Silently handle 401/403 errors (invalid/expired token)
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          localStorage.removeItem("token");
-          setUser(null);
-        }
-      })
-      .finally(() => setLoading(false));
+    // For local-first app, always set user immediately
+    // No authentication required
+    setUser(LOCAL_USER);
+    setLoading(false);
   }, []);
 
-  const login = async (token: string) => {
-    localStorage.setItem("token", token);
-    try {
-      const res = await api.get<User>("/auth/me");
-      setUser(res.data);
-    } catch {
-      localStorage.removeItem("token");
-      setUser(null);
-      throw new Error("Failed to authenticate");
-    }
+  const login = async (username: string, password: string) => {
+    // For local-first app, just set the local user
+    // In the future, you could add optional password protection
+    setUser(LOCAL_USER);
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    // For local-first app, logout doesn't really do anything
+    // but we keep it for UI consistency
     setUser(null);
   };
 

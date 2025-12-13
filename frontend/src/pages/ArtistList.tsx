@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { artistService } from "../services/db";
 
 interface Artist {
-  artist_id: number;
+  artist_id?: number;
   name: string;
 }
 
@@ -14,10 +14,10 @@ const ArtistList: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api
-      .get<Artist[]>("/artists")
-      .then((res) => {
-        setArtists(res.data);
+    artistService
+      .getAll()
+      .then((artists) => {
+        setArtists(artists);
         setError(null);
       })
       .catch((err) => setError(err.message))

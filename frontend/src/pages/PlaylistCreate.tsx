@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { playlistService } from "../services/db";
 
 const PlaylistCreate: React.FC = () => {
   const navigate = useNavigate();
@@ -14,12 +14,12 @@ const PlaylistCreate: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await api.post<{ playlist_id: number }>("/playlists", {
+      const playlistId = await playlistService.create({
         title,
       });
-      navigate(`/playlists/${res.data.playlist_id}`);
+      navigate(`/playlists/${playlistId}`);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to create playlist");
+      setError(err.message || "Failed to create playlist");
     } finally {
       setLoading(false);
     }

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { genreService } from "../services/db";
 
 interface Genre {
-  genre_id: number;
+  genre_id?: number;
   name: string;
 }
 
@@ -42,10 +42,10 @@ const GenreList: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api
-      .get<Genre[]>("/genres")
-      .then((res) => {
-        setGenres(res.data);
+    genreService
+      .getAll()
+      .then((genres) => {
+        setGenres(genres);
         setError(null);
       })
       .catch((err) => setError(err.message))

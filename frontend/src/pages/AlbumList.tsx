@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { albumService } from "../services/db";
 
 interface Album {
-  album_id: number;
+  album_id?: number;
   title: string;
-  cover_image: string | null;
-  user_id: number;
+  cover_image?: string | null;
 }
 
 const AlbumList: React.FC = () => {
@@ -16,10 +15,10 @@ const AlbumList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .get<Album[]>("/albums")
-      .then((res) => {
-        setAlbums(res.data);
+    albumService
+      .getAll()
+      .then((albums) => {
+        setAlbums(albums);
         setError(null);
       })
       .catch((err) => setError(err.message))

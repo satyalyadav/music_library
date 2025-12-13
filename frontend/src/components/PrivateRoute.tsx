@@ -1,5 +1,4 @@
 import React, { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 interface PrivateRouteProps {
@@ -7,14 +6,12 @@ interface PrivateRouteProps {
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
+  // For local-first app, no authentication required
+  // Just show loading state if needed
   if (loading) {
     return <div className="loading">Loading...</div>;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
