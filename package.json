@@ -1,14 +1,20 @@
 {
-  "name": "music-library",
-  "version": "1.0.0",
+  "name": "clarus-music",
+  "version": "2.0.0",
   "description": "Local-first music library app - works entirely in the browser",
   "scripts": {
-    "install": "cd frontend && npm install",
-    "dev": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "preview": "cd frontend && npm run preview"
+    "install": "cd app && npm install",
+    "dev": "cd app && npm run dev",
+    "build": "cd app && npm run build",
+    "preview": "cd app && npm run preview"
   },
-  "keywords": ["music", "library", "local-first", "indexeddb", "pwa"],
+  "keywords": [
+    "music",
+    "library",
+    "local-first",
+    "indexeddb",
+    "pwa"
+  ],
   "author": "",
   "license": "MIT"
 }

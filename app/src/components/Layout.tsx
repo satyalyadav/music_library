@@ -15,9 +15,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="app-container">
       {/* Top Header Bar */}
       <header className="header">
-        <span className="header-title" onClick={() => navigate("/songs")}>
-          music library
-        </span>
+        <div className="header-title-wrapper">
+          <span className="header-title" onClick={() => navigate("/songs")}>
+            clarus music
+          </span>
+          <span className="header-title-hover">your music, local first</span>
+        </div>
         <div className="header-spacer" />
         <button
           className="theme-toggle"

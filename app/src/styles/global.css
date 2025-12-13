@@ -102,14 +102,37 @@ body {
   align-items: center;
 }
 
+.header-title-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .header-title {
   font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
+  transition: color 0.2s ease;
 }
 
-.header-title:hover {
+.header-title-wrapper:hover .header-title {
   color: var(--accent-color);
+}
+
+.header-title-hover {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.header-title-wrapper:hover .header-title-hover {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .header-spacer {

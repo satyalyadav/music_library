@@ -1,4 +1,4 @@
-# Music Library
+# Clarus Music
 
 A **local-first** music library application that works entirely in your browser.  
 Built with React, TypeScript, and IndexedDB. It originally started as a class project for a database course, used PostgreSQL, and had a Express.js backend. But I decided to make it local first and deploy it.
@@ -72,12 +72,6 @@ Works in all modern browsers that support:
 - IndexedDB
 - File API
 - Audio API
-
-Tested and working in:
-
-- Chrome/Edge (latest)
-- Firefox (latest)
-- Safari (latest)
 
 ## Limitations
 
