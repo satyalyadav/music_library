@@ -23,8 +23,12 @@ const AudioPlayer: React.FC = () => {
   } = useAudioPlayer();
 
   const sliderRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const titleWrapperRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [prevVolume, setPrevVolume] = useState(1);
+  const [shouldScroll, setShouldScroll] = useState(false);
+  const [scrollDistance, setScrollDistance] = useState(0);
 
   const toggleMute = () => {
     if (volume > 0) {
@@ -73,6 +77,30 @@ const AudioPlayer: React.FC = () => {
     };
   }, [isDragging, calculateSeekPosition]);
 
+  // Check if title text overflows and calculate scroll distance
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (titleRef.current && titleWrapperRef.current) {
+        const titleWidth = titleRef.current.scrollWidth;
+        const wrapperWidth = titleWrapperRef.current.offsetWidth;
+        const needsScroll = titleWidth > wrapperWidth;
+        setShouldScroll(needsScroll);
+        if (needsScroll) {
+          // Calculate how much we need to scroll (text width - container width)
+          setScrollDistance(titleWidth - wrapperWidth);
+        } else {
+          setScrollDistance(0);
+        }
+      }
+    };
+
+    checkOverflow();
+    
+    // Recheck on window resize
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [currentTrack?.title]);
+
   if (!currentTrack) {
     return (
       <div className="audio-player">
@@ -105,8 +133,23 @@ const AudioPlayer: React.FC = () => {
           />
         )}
         <div className="audio-player-text">
-          <div className="audio-player-title">
-            {currentTrack.title || "Unknown"}
+          <div 
+            ref={titleWrapperRef}
+            className="audio-player-title-wrapper"
+          >
+            <div 
+              ref={titleRef}
+              className={`audio-player-title ${shouldScroll ? 'scroll' : ''}`}
+              style={
+                shouldScroll
+                  ? ({
+                      "--scroll-distance": `-${scrollDistance}px`,
+                    } as React.CSSProperties)
+                  : undefined
+              }
+            >
+              {currentTrack.title || "Unknown"}
+            </div>
           </div>
           <div className="audio-player-subtitle">
             {currentTrack.artist || "Unknown Artist"}

@@ -488,13 +488,40 @@ body {
   min-width: 0;
 }
 
+.audio-player-title-wrapper {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+}
+
 .audio-player-title {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: inline-block;
+}
+
+.audio-player-title.scroll {
+  animation: scroll-text 10s ease-in-out infinite;
+  padding-right: 30px;
+}
+
+@keyframes scroll-text {
+  0%, 5% {
+    transform: translateX(0);
+  }
+  40%, 50% {
+    transform: translateX(var(--scroll-distance, 0));
+  }
+  95%, 100% {
+    transform: translateX(0);
+  }
+}
+
+/* Pause animation on hover for better readability */
+.audio-player-title-wrapper:hover .audio-player-title.scroll {
+  animation-play-state: paused;
 }
 
 .audio-player-subtitle {
